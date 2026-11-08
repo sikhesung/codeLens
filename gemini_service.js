@@ -205,14 +205,17 @@ ${numberedCode}
       })
       .join("\n");
 
-    const prompt = `당신은 친절하고 날카로운 프로그래밍 튜터입니다.
+    const prompt = `당신은 엄격하면서도 친절한 프로그래밍 교육 평가자 'CodeLens'입니다.
 사용자가 아래 코드의 각 줄에 대해 자신이 이해한 내용을 주석으로 달았습니다.
-사용자가 주석을 작성한 줄(미작성 제외)을 하나씩 확인하여 코드의 실제 동작과 일치하는지 채점해 주세요.
+절대로 글자 수만 채웠다고 점수를 주지 마세요. 반드시 **"사용자가 이 코드 줄이 실제로 어떤 역할(Role)과 목적을 수행하는지 알고 있는가(코드 이해도)"**를 기준으로 엄격하게 채점해 주세요.
 
-[채점 기준]
-- "correct": 코드의 동작과 의도를 정확하게 이해한 주석
-- "partial": 절반만 맞거나 중요한 경계 조건이 빠진 주석
-- "incorrect": 연산 방향을 반대로 적었거나 코드 동작과 다르게 오해한 주석
+[핵심 채점 기준 (코드 역할 이해도 중심)]
+1. "correct" (90~100점): 해당 코드 줄이 수행하는 실제 동작(역할)과 대상/목적을 정확하게 이해하고 작성한 주석
+2. "partial" (50~75점): 단순히 문법 명칭("반복문", "조건문", "변수 선언")만 적었거나, 동작의 일부만 맞고 구체적으로 어떤 데이터를 어떻게 처리하는지 역할 설명이 부족한 주석
+3. "incorrect" (0~20점):
+   - 글자 수만 채운 무관한 문장이나 의미 없는 단어 나열
+   - 코드를 설명 없이 그대로 복사·붙여넣기만 한 주석
+   - 연산 방향이나 조건, 코드의 역할을 반대로/다르게 오해한 주석
 
 [코드 및 사용자 주석 제출 내역]
 ${submissionText}
@@ -220,9 +223,9 @@ ${submissionText}
 [응답 JSON 스키마]
 {
   "score": 85,
-  "grade": "S, A, B, C 중 하나",
-  "summaryTitle": "채점 결과 한 줄 총평 제목",
-  "summaryText": "사용자의 코드 이해도에 대한 종합 피드백 및 복습 조언",
+  "grade": "S, A, B, C 중 하나 (92점 이상 S, 78점 이상 A, 50점 이상 B, 50점 미만 C)",
+  "summaryTitle": "코드 역할 이해도 채점 결과 한 줄 총평 제목",
+  "summaryText": "사용자가 각 코드의 역할을 얼마나 정확히 이해하고 있는지에 대한 종합 피드백 및 복습 조언",
   "correctCount": 5,
   "partialCount": 1,
   "incorrectCount": 1,
@@ -231,10 +234,10 @@ ${submissionText}
       "lineNumber": 1,
       "code": "해당 줄의 원본 코드",
       "userComment": "사용자가 적은 주석",
-      "modelComment": "모범 정답 주석",
+      "modelComment": "이 줄의 실제 역할을 설명하는 모범 정답 주석",
       "status": "correct | partial | incorrect",
-      "verdictLabel": "✅ 정확한 이해 | ⚠️ 보완 필요 | ❌ 오개념 교정 필요",
-      "feedback": "친절한 설명"
+      "verdictLabel": "✅ 정확한 역할 이해 | ⚠️ 구체적 역할 보완 필요 | ❌ 역할 미이해 / 오개념 교정 필요",
+      "feedback": "사용자의 주석이 이 코드의 역할을 제대로 짚었는지, 무엇을 보완해야 하는지 친절하고 명확한 설명"
     }
   ]
 }`;
@@ -248,7 +251,7 @@ ${submissionText}
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.2,
+          temperature: 0.15,
           responseMimeType: "application/json"
         }
       })
@@ -268,59 +271,73 @@ ${submissionText}
   },
 
   /**
-   * 우측 하단 AI 학습 챗봇 호출 (현재 설정된 Gemini API 모델을 그대로 사용)
+   * 우측 하단 AI 학습 챗봇 호출 (어떤 질문이든 자유롭고 정확하게 답변)
    */
   async askChatbot(userQuestion, code, analysisData, selectedLine, chatHistory = []) {
     const apiKey = this.getApiKey();
     if (!apiKey) {
-      return LocalSmartEngine.answerChatLocally(userQuestion, code, analysisData, selectedLine);
+      return LocalSmartEngine.answerChatLocally(userQuestion, code, analysisData, selectedLine, chatHistory);
     }
 
-    const numberedCode = code
+    const numberedCode = code && code.trim()
       ? code
           .split(/\r?\n/)
           .map((l, i) => `${i + 1}: ${l}`)
           .join("\n")
-      : "(아직 입력된 코드가 없습니다)";
+      : "(현재 입력된 코드가 없습니다)";
 
     const recentHistoryText = chatHistory
-      .slice(-6)
+      .slice(-8)
       .map(m => `${m.role === "user" ? "사용자" : "AI 튜터"}: ${m.text}`)
       .join("\n");
 
-    const systemContext = `당신은 'CodeLens AI 코딩 튜터'입니다.
-사용자가 현재 보고 있는 코드에 대해 질문하면 친절하고 이해하기 쉽게 핵심을 짚어 한국어로 답변하세요.
-현재 선택된 줄 번호: ${selectedLine || 1}번 줄
+    const systemContext = `당신은 만능 프로그래밍 멘토이자 코드 분석 전문가인 'CodeLens AI 코딩 튜터'입니다.
+정해진 틀이나 고정된 답변만 반복하지 말고, 사용자의 질문 의도를 정확히 파악하여 **어떤 질문이든** 맞춤형으로 명쾌하고 친절하게 한국어로 답변하세요.
 
-[현재 분석 중인 코드]
+[답변 가이드라인]
+1. 사용자가 현재 코드의 특정 줄, 변수, 함수, 작동 원리, 이유(Why), 버그, 리팩토링을 물어보면 아래 [현재 분석 중인 코드]를 바탕으로 정확히 설명하세요.
+2. 사용자가 특정 줄을 지정하지 않고 일반 질문이나 전체 코드 질문을 하면, 무조건 선택된 줄만 설명하지 말고 질문 자체에 직접 답하세요.
+3. 사용자가 현재 코드와 무관한 새로운 코드 작성 요청(예: "버블 정렬 짜줘", "투 포인터 예제 보여줘"), CS 전공 지식, 알고리즘, 언어 문법, 혹은 일상적인 대화를 건네더라도 제한 없이 자유롭고 상세하게 답변하세요.
+
+[참고: 현재 에디터의 코드]
 ${numberedCode}
 
-[최근 대화 내역]
+[최근 대화 맥락]
 ${recentHistoryText}
 
-[사용자 질문]
+[사용자의 현재 질문]
 ${userQuestion}`;
 
-    const model = this.getModel();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const candidateModels = Array.from(
+      new Set([this.getModel(), "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"])
+    );
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: systemContext }] }],
-        generationConfig: {
-          temperature: 0.35
+    for (const model of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: systemContext }] }],
+            generationConfig: {
+              temperature: 0.4
+            }
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const reply = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply && reply.trim()) {
+            return reply;
+          }
         }
-      })
-    });
-
-    if (!response.ok) {
-      return LocalSmartEngine.answerChatLocally(userQuestion, code, analysisData, selectedLine);
+      } catch (e) {
+        // 다음 후보 모델로 폴백 시도
+      }
     }
 
-    const result = await response.json();
-    const reply = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return reply || LocalSmartEngine.answerChatLocally(userQuestion, code, analysisData, selectedLine);
+    return LocalSmartEngine.answerChatLocally(userQuestion, code, analysisData, selectedLine, chatHistory);
   }
 };

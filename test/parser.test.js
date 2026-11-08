@@ -127,5 +127,48 @@ describe("LocalSmartEngine - Unit Tests", () => {
       assert.strictEqual(grade.incorrectCount, 1, "오개념 트랩이 1회 감지되어야 합니다.");
       assert.strictEqual(grade.feedbackList[0].status, "incorrect");
     });
+
+    it("글자 수만 채운 무관한 주석은 0점(incorrect) 처리 검증", () => {
+      const code = `for i in range(n):`;
+      const analysis = LocalSmartEngine.analyzeCustomCode(code, "python");
+      const userComments = {
+        1: "오늘 점심 메뉴는 맛있는 돈까스입니다 글자수 채우기"
+      };
+
+      const grade = LocalSmartEngine.gradeUserComments(code, userComments, analysis);
+      assert.strictEqual(grade.score, 0, "코드 역할과 무관한 문장은 글자 수가 길어도 0점이어야 합니다.");
+      assert.strictEqual(grade.feedbackList[0].status, "incorrect");
+    });
+
+    it("단순 문법 명칭만 적은 경우 만점이 아닌 부분 점수(partial) 처리 검증", () => {
+      const code = `while (left < right) {`;
+      const analysis = LocalSmartEngine.analyzeCustomCode(code, "javascript");
+      const userComments = {
+        1: "반복문입니다"
+      };
+
+      const grade = LocalSmartEngine.gradeUserComments(code, userComments, analysis);
+      assert.strictEqual(grade.feedbackList[0].status, "partial", "구체적 역할 없이 문법 이름만 적으면 partial이어야 합니다.");
+      assert.ok(grade.score < 80, "만점이 부여되면 안 됩니다.");
+    });
+  });
+
+  describe("7. 지능형 만능 AI 튜터 챗봇 (answerChatLocally)", () => {
+    it("특정 변수 역할 질문 시 고정된 1번 줄 답변이 아닌 해당 변수 등장 라인 추적 답변", () => {
+      const code = LocalSmartEngine.PRESETS.two_sum_js.code;
+      const analysis = LocalSmartEngine.analyzeCustomCode(code, "javascript");
+      const reply = LocalSmartEngine.answerChatLocally("right 변수는 무슨 역할이야?", code, analysis, 1);
+
+      assert.ok(reply.includes("right"), "질문한 변수 right에 대한 설명이 포함되어야 합니다.");
+      assert.ok(!reply.includes("현재 선택하신 **1번 줄"), "고정된 1번 줄 기본 답변이 나오면 안 됩니다.");
+    });
+
+    it("알고리즘 코드 작성 및 CS 개념 질문에 대해 즉시 답변", () => {
+      const codeReply = LocalSmartEngine.answerChatLocally("이진 탐색 코드 짜줘", "", null, 1);
+      assert.ok(codeReply.includes("binary_search"), "이진 탐색 구현 코드가 포함되어야 합니다.");
+
+      const csReply = LocalSmartEngine.answerChatLocally("재귀함수가 뭐야?", "", null, 1);
+      assert.ok(csReply.includes("기저 조건"), "재귀 함수 핵심 개념이 설명되어야 합니다.");
+    });
   });
 });
