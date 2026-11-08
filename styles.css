@@ -536,6 +536,77 @@ code, pre, textarea.code-textarea, .mono {
   color: var(--text-secondary);
 }
 
+/* Quick Algorithm Presets Bar */
+.presets-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.presets-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.preset-chip {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.14s ease;
+}
+
+.preset-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+
+/* Syntax Highlighting Tokens (VS Code Dark+ Style) */
+.syn-keyword {
+  color: #c586c0;
+  font-weight: 600;
+}
+
+.syn-string {
+  color: #ce9178;
+}
+
+.syn-number {
+  color: #b5cea8;
+}
+
+.syn-fn {
+  color: #dcdcaa;
+}
+
+.syn-bracket {
+  color: #569cd6;
+  font-weight: 700;
+}
+
+.syn-comment {
+  color: #6a9955;
+  font-style: italic;
+}
+
 .editor-container {
   position: relative;
   display: flex;

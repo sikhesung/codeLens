@@ -984,5 +984,116 @@ const LocalSmartEngine = {
     }
 
     return `📌 **코드 전체 요약:**\n${analysisData?.deepDive?.summary || "입력하신 코드를 순차적으로 수행합니다."}\n\n궁금한 줄 번호(예: *"3번 줄이 왜 필요해?"*)나 *"시간 복잡도 알려줘"*, *"반복문 구간 설명해줘"*처럼 물어보시거나, 상단 **Gemini API 설정**에 키를 등록해 AI 모델과 직접 대화해 보세요!`;
+  },
+
+  /**
+   * 초경량 순수 정규식 기반 구문 강조 (Syntax Highlighting)
+   */
+  highlightSyntax(codeStr, lang = "auto") {
+    if (!codeStr) return "";
+    let s = String(codeStr)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    // 1) 문자열
+    s = s.replace(/(".*?"|'.*?'|`.*?`)/g, '<span class="syn-string">$1</span>');
+
+    // 2) 숫자
+    s = s.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="syn-number">$1</span>');
+
+    // 3) 키워드
+    const keywords = [
+      "def", "class", "import", "from", "as", "return", "if", "elif", "else",
+      "for", "while", "break", "continue", "in", "and", "or", "not", "is", "None", "True", "False",
+      "function", "const", "let", "var", "async", "await", "export", "default", "new",
+      "int", "void", "double", "float", "char", "bool", "boolean", "long", "short", "struct",
+      "public", "private", "protected", "static", "final", "include", "define", "sizeof",
+      "switch", "case", "try", "catch", "throw", "typedef"
+    ];
+    const kwRegex = new RegExp(`\\b(${keywords.join("|")})\\b`, "g");
+    s = s.replace(kwRegex, '<span class="syn-keyword">$1</span>');
+
+    // 4) 함수 호출부 (예: print(, malloc(, range()
+    s = s.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*\()/g, '<span class="syn-fn">$1</span>');
+
+    // 5) 닫는 중괄호 및 괄호 강조
+    s = s.replace(/(\{|\})/g, '<span class="syn-bracket">$1</span>');
+
+    return s;
+  },
+
+  /**
+   * 포트폴리오 면접관 & 방문자를 위한 원클릭 대표 알고리즘 프리셋
+   */
+  PRESETS: {
+    bubble_sort: {
+      title: "버블 정렬 (Python)",
+      lang: "python",
+      code: `def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+    return arr
+
+numbers = [64, 34, 25, 12, 22, 11, 90]
+print(bubble_sort(numbers))`
+    },
+    binary_search: {
+      title: "이진 탐색 (Python)",
+      lang: "python",
+      code: `def binary_search(arr, target):
+    left = 0
+    right = len(arr) - 1
+    while left <= right:
+        mid = (left + right) // 2
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    return -1`
+    },
+    fibonacci_c: {
+      title: "피보나치 재귀 (C언어)",
+      lang: "c",
+      code: `#include <stdio.h>
+
+int fibonacci(int n) {
+    if (n <= 1) {
+        return n;
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+int main() {
+    int n = 7;
+    int result = fibonacci(n);
+    printf("Fibonacci(%d) = %d\\n", n, result);
+    return 0;
+}`
+    },
+    two_sum_js: {
+      title: "투 포인터 (JavaScript)",
+      lang: "javascript",
+      code: `function twoSum(numbers, target) {
+    let left = 0;
+    let right = numbers.length - 1;
+    while (left < right) {
+        const sum = numbers[left] + numbers[right];
+        if (sum === target) {
+            return [left + 1, right + 1];
+        } else if (sum < target) {
+            left++;
+        } else {
+            right--;
+        }
+    }
+    return [];
+}`
+    }
   }
 };

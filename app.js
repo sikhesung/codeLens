@@ -399,6 +399,21 @@ function bindEvents() {
     }
   });
 
+  // 빠른 알고리즘 프리셋 원클릭 체험 버튼들 (면접관 & 방문자용)
+  document.querySelectorAll(".preset-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const pKey = btn.dataset.preset;
+      const preset = LocalSmartEngine.PRESETS[pKey];
+      if (!preset) return;
+      els.langSelect.value = preset.lang;
+      els.codeInput.value = preset.code;
+      updateEditorLineNumbers();
+      if (AppState.viewMode === "code-only") setSlideViewMode("split", 36);
+      showToast(`⚡ '${preset.title}' 예제를 불러와 즉시 분석합니다!`);
+      handleAnalyzeAll();
+    });
+  });
+
   els.clearCodeBtn.addEventListener("click", () => {
     els.codeInput.value = "";
     AppState.currentCode = "";
@@ -800,8 +815,8 @@ function createCodeLineRowElement(item) {
 
   const codeSpan = document.createElement("span");
   codeSpan.className = "row-code-text";
-  codeSpan.textContent = cleanCode || " ";
-  codeSpan.title = "더블클릭하거나 경계선을 드래그하여 코드 영역 너비를 조절할 수 있습니다.";
+  codeSpan.innerHTML = LocalSmartEngine.highlightSyntax(cleanCode, els.langSelect?.value) || "&nbsp;";
+  codeSpan.title = "더블클릭하거나 상단 경계선을 드래그하여 코드 영역 너비를 조절할 수 있습니다.";
 
   const commentDiv = document.createElement("div");
   if (!isEmpty && commentText) {
@@ -1146,9 +1161,11 @@ function renderVariableTracer() {
   lines.forEach((ln) => {
     const div = document.createElement("div");
     const isHighlighted = ln.lineNumber === currentTrace.highlightLine;
+    const dispCode = formatCodeForDisplay(ln.code) || " ";
     div.className = `trace-line ${isHighlighted ? "active-trace-line" : ""}`;
-    div.innerHTML = `<span class="row-line-num">${ln.lineNumber}</span><span>${escapeHtml(
-      formatCodeForDisplay(ln.code) || " "
+    div.innerHTML = `<span class="row-line-num">${ln.lineNumber}</span><span>${LocalSmartEngine.highlightSyntax(
+      dispCode,
+      els.langSelect?.value
     )}</span>`;
     els.traceCodeView.appendChild(div);
     if (isHighlighted) {
