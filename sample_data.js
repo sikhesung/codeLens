@@ -1097,3 +1097,8 @@ int main() {
     }
   }
 };
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { LocalSmartEngine };
+}
+

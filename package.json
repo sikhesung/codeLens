@@ -1,0 +1,20 @@
+{
+  "name": "codelens",
+  "version": "1.0.0",
+  "description": "Interactive code dissection and learning tool with Dual Engine (Local AST/Regex + LLM BYOK)",
+  "main": "app.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "education",
+    "code-visualization",
+    "parser",
+    "ast",
+    "syntax-highlighting",
+    "byok",
+    "gemini-api"
+  ],
+  "author": "sikhesung",
+  "license": "MIT"
+}
