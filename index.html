@@ -206,6 +206,12 @@
                 <input type="checkbox" id="stripIndentToggle" />
                 <span>들여쓰기 (주석 같이 이동)</span>
               </label>
+
+              <!-- 한 줄 완벽 이해 관통 요약 켜기/끄기 (선택사항) -->
+              <label class="ctrl-chip highlight-chip" title="코드를 단 한 줄로 완벽하게 이해시키는 핵심 관통 요약 배너를 켜거나 끕니다">
+                <input type="checkbox" id="oneLineEssenceToggle" checked />
+                <span>⚡ 한 줄 완벽 이해</span>
+              </label>
             </div>
 
             <div class="toolbar-right">
@@ -221,6 +227,12 @@
                 </select>
               </div>
 
+              <!-- 코드 영역 컬럼 폭 직접 조절 슬라이더 -->
+              <div class="ctrl-group" id="codeWidthControlGroup" title="코드 영역 너비를 직접 넓히거나 좁힙니다 (드래그 조절과 실시간 연동)">
+                <label for="codeWidthSlider" class="ctrl-label">코드 폭</label>
+                <input type="range" id="codeWidthSlider" class="gap-slider" min="14" max="90" value="32" />
+              </div>
+
               <!-- 코드-주석 사이 간격 미세 조절 슬라이더 -->
               <div class="ctrl-group" id="commentGapControlGroup" title="코드 끝과 주석 시작 위치 사이의 간격을 원하는 대로 조절합니다">
                 <label for="commentGapSlider" class="ctrl-label">주석 간격</label>
@@ -233,12 +245,21 @@
             </div>
           </div>
 
-          <!-- Interactive Comment Column Drag Guide Bar (Directly drag comment column left/right) -->
+          <!-- Interactive Code Width & Comment Gap Drag Guide Bar -->
           <div class="comment-drag-ruler" id="commentColumnDragBar">
-            <span class="ruler-code-label">줄 · 코드 영역</span>
-            <div class="ruler-drag-handle" id="commentColumnDragThumb" title="마우스로 좌/우로 드래그하여 주석 시작 위치를 직접 이동하세요">
-              <span>↔ 주석 시작선 드래그 이동</span>
+            <span class="ruler-code-label">줄 번호</span>
+            <div class="ruler-drag-handle code-width-handle" id="codeWidthDragThumb" title="마우스로 좌/우로 드래그하여 코드 영역 너비를 직접 넓히거나 좁히세요">
+              <span>↔ 코드 영역 너비 드래그 조절</span>
             </div>
+            <div class="ruler-drag-handle comment-gap-handle" id="commentColumnDragThumb" title="마우스로 좌/우로 드래그하여 주석 시작 위치를 직접 이동하세요">
+              <span>↔ 주석 간격 드래그</span>
+            </div>
+          </div>
+
+          <!-- One-Line Essence Banner (선택사항: 단 한 줄로 완벽 이해) -->
+          <div id="tab1EssenceBanner" class="one-line-essence-banner">
+            <span class="essence-badge">⚡ 한 줄 완벽 이해</span>
+            <span class="essence-text" id="tab1EssenceText">코드를 분석하면 단 1초 만에 핵심 동작을 꿰뚫는 완벽한 한 줄 요약이 여기에 표시됩니다.</span>
           </div>
 
           <!-- View A: 1-Line Aligned Code & Comments List -->

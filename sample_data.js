@@ -114,10 +114,12 @@ const LocalSmartEngine = {
     const logicalBlocks = this.parseLogicalBlocks(rawLines, lang, lineByLine);
     const deepDive = this.buildDeepDiveForCode(code, lang, context, lineByLine);
     const analogy = this.buildAnalogyForCode(context);
+    const oneLineEssence = this.buildOneLineEssence(code, lang, context, lineByLine);
 
     return {
       lineByLine,
       logicalBlocks,
+      oneLineEssence,
       understanding: {
         analogy,
         flowSteps,
@@ -126,6 +128,26 @@ const LocalSmartEngine = {
       },
       deepDive
     };
+  },
+
+  buildOneLineEssence(code, lang, context, lineByLine) {
+    const fn = context.fnNames && context.fnNames[0] ? context.fnNames[0].name : "";
+    if (context.isRecursive && fn) {
+      return `⚡ 이 코드는 문제를 작은 단위로 쪼개어 자기 자신('${fn}')을 다시 호출함으로써 최종 정답을 완성하는 '재귀(Recursion)' 코드입니다.`;
+    }
+    if (context.hasBinaryMid) {
+      return `⚡ 이 코드는 정렬된 데이터에서 탐색 범위를 매 단계 절반씩 줄여가며 목표 값을 매우 빠르게 찾아내는 '이진 탐색' 코드입니다.`;
+    }
+    if (context.hasSort || (context.forCount >= 2 && context.totalLoops >= 2)) {
+      return `⚡ 이 코드는 데이터들의 크기를 서로 비교하고 위치를 맞바꾸며 순서대로 정렬하는 '이중 루프 비교/정렬' 코드입니다.`;
+    }
+    if (context.totalLoops >= 1) {
+      return `⚡ 이 코드는 주어진 데이터 범위를 처음부터 끝까지 순회하며 조건 검사와 누적 연산을 수행하여 결과를 도출하는 '반복 처리' 코드입니다.`;
+    }
+    if (fn) {
+      return `⚡ 이 코드는 입력 인자를 받아 핵심 조건과 연산을 수행한 뒤 최종 결과값을 호출자에게 돌려주는 '${fn}' 함수 코드입니다.`;
+    }
+    return `⚡ 이 코드는 변수 초기화부터 순차적 조건 검사와 계산을 거쳐 최종 결과를 도출하는 직관적인 실행 코드입니다.`;
   },
 
   /**
@@ -423,6 +445,16 @@ const LocalSmartEngine = {
   },
 
   explainLineInDepth(line, lineNum, lang, context) {
+    // C언어/JS 등 닫는 중괄호 } 단독 라인 스마트 처리 (깔끔하고 군더더기 없는 블록 종료 안내)
+    if (/^[\}\]\)]+;?$/.test(line.trim())) {
+      return {
+        beginner: "앞서 열렸던 코드 블록(함수·제어문)의 실행 구간을 닫고 마칩니다.",
+        advanced: "현재 로컬 스코프(Scope)를 종료하고 상위 컨텍스트로 복귀합니다.",
+        why: "블록의 시작({)과 짝을 맞춰 실행 유효 범위를 명확히 닫기 위한 기호입니다.",
+        isClosingBrace: true
+      };
+    }
+
     if (/^#include\s*[<"](.+)[>"]/.test(line)) {
       const hdr = line.match(/^#include\s*[<"](.+)[>"]/)[1];
       return {

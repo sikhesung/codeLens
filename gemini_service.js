@@ -65,6 +65,7 @@ ${numberedCode}
 
 [응답 JSON 스키마]
 {
+  "oneLineEssence": "이 코드 전체를 단 한 문장으로 완벽하게 이해시키는 핵심 관통 요약 (예: '⚡ 이 코드는 1부터 N까지의 숫자 중 짝수만 골라 합계를 구하는 코드입니다.')",
   "lineByLine": [
     {
       "lineNumber": 1,
@@ -172,6 +173,16 @@ ${numberedCode}
       parsed.logicalBlocks = LocalSmartEngine.parseLogicalBlocks(
         lines,
         detectedLang,
+        parsed.lineByLine || []
+      );
+    }
+    if (!parsed.oneLineEssence || typeof parsed.oneLineEssence !== "string") {
+      const detectedLang = LocalSmartEngine.detectLanguage(code, lang);
+      const ctx = LocalSmartEngine.extractCodeContext(code, detectedLang);
+      parsed.oneLineEssence = LocalSmartEngine.buildOneLineEssence(
+        code,
+        detectedLang,
+        ctx,
         parsed.lineByLine || []
       );
     }

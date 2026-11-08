@@ -8,9 +8,12 @@ const AppState = {
   explanationLevel: "beginner", // "beginner" | "advanced"
   interpretScope: "line", // "line" (한 줄씩 1자 정렬) | "block" (작동 블록 시작~끝 묶음)
   stripIndentation: true, // 해석코드에서 들여쓰기 제거 (기본값 true)
+  showOneLineEssence: true, // 한 줄 완벽 이해 관통 요약 배너 표시 (선택사항)
   commentPosition: "right", // "right" | "top" | "bottom" | "left" | "hidden"
+  userCodeWidthCh: 32, // 사용자가 드래그/슬라이더로 지정한 코드 영역 폭 (ch 단위)
+  userAdjustedCodeWidth: false,
   userCommentGapPx: 32, // 사용자가 지정한 기본 주석 간격 (px)
-   userAdjustedGap: false,
+  userAdjustedGap: false,
 
   selectedLineNumber: 1,
   currentTraceStepIdx: 0,
@@ -96,10 +99,18 @@ function initElements() {
     // Tab 1: Line & Block Controls
     scopeBtns: document.querySelectorAll(".scope-btn"),
     stripIndentToggle: document.getElementById("stripIndentToggle"),
+    oneLineEssenceToggle: document.getElementById("oneLineEssenceToggle"),
     commentPosSelect: document.getElementById("commentPosSelect"),
+    codeWidthControlGroup: document.getElementById("codeWidthControlGroup"),
+    codeWidthSlider: document.getElementById("codeWidthSlider"),
+    codeWidthDragThumb: document.getElementById("codeWidthDragThumb"),
     commentGapControlGroup: document.getElementById("commentGapControlGroup"),
     commentGapSlider: document.getElementById("commentGapSlider"),
     copyCommentedCodeBtn: document.getElementById("copyCommentedCodeBtn"),
+    commentColumnDragBar: document.getElementById("commentColumnDragBar"),
+    commentColumnDragThumb: document.getElementById("commentColumnDragThumb"),
+    tab1EssenceBanner: document.getElementById("tab1EssenceBanner"),
+    tab1EssenceText: document.getElementById("tab1EssenceText"),
     lineByLineList: document.getElementById("lineByLineList"),
     blockUnitsList: document.getElementById("blockUnitsList"),
     inspectorLineNum: document.getElementById("inspectorLineNum"),
@@ -193,28 +204,32 @@ function updateDynamicCodeAlignment() {
     }
   });
 
-  // 코드 최대 길이에 맞춰 코드 컬럼 너비를 ch 단위로 정확히 고정 (최소 14ch ~ 최대 76ch)
-  const clampedCh = Math.max(14, Math.min(76, maxCh + 2));
-  els.lineByLineList.style.setProperty("--code-col-width", `${clampedCh}ch`);
+  // 코드 최대 길이에 맞춰 코드 컬럼 너비를 ch 단위로 계산
+  const autoCh = Math.max(14, Math.min(84, maxCh + 2));
+  const finalCodeWidthCh = AppState.userAdjustedCodeWidth
+    ? AppState.userCodeWidthCh
+    : autoCh;
+
+  if (!AppState.userAdjustedCodeWidth) {
+    AppState.userCodeWidthCh = autoCh;
+    if (els.codeWidthSlider) els.codeWidthSlider.value = autoCh;
+  }
 
   // 창모드 vs 전체화면에 따라 코드와 주석 사이 간격을 유동적으로 산출 (사용자가 직접 슬라이더를 만진 경우 사용자 값 우선)
   let gapPx = AppState.userCommentGapPx;
   if (!AppState.userAdjustedGap) {
     const winW = window.innerWidth;
     if (winW >= 1500) {
-      // 전체화면이나 넓은 모니터일 때는 코드 최대 길이에 비례해 여유로운 간격 자동 부여
       const extraFluid = Math.max(24, Math.min(140, Math.round((winW - 1100) * 0.12)));
       gapPx = 28 + extraFluid;
     } else {
-      // 창모드 기준점에서는 컴팩트하고 깔끔한 간격 유지
       gapPx = 24;
     }
-    els.commentGapSlider.value = gapPx;
+    if (els.commentGapSlider) els.commentGapSlider.value = gapPx;
     AppState.userCommentGapPx = gapPx;
   }
 
   els.lineByLineList.style.setProperty("--comment-gap", `${gapPx}px`);
-  els.blockUnitsList.style.setProperty("--code-col-width", `${clampedCh}ch`);
   els.blockUnitsList.style.setProperty("--comment-gap", `${gapPx}px`);
 }
 
@@ -481,11 +496,27 @@ function bindEvents() {
     );
   });
 
+  // 탭1: 한 줄 완벽 이해 관통 요약 토글 (선택사항)
+  if (els.oneLineEssenceToggle) {
+    els.oneLineEssenceToggle.addEventListener("change", (e) => {
+      AppState.showOneLineEssence = e.target.checked;
+      updateEssenceBannerVisibility();
+      showToast(
+        e.target.checked
+          ? "⚡ 한 줄 완벽 이해 배너가 활성화되었습니다."
+          : "⚡ 한 줄 완벽 이해 배너가 숨겨졌습니다."
+      );
+    });
+  }
+
   // 탭1: 개인 맞춤 주석 위치 변경
   els.commentPosSelect.addEventListener("change", (e) => {
     AppState.commentPosition = e.target.value;
     const isSidePos = AppState.commentPosition === "right" || AppState.commentPosition === "left";
     els.commentGapControlGroup.style.display = isSidePos ? "inline-flex" : "none";
+    if (els.codeWidthControlGroup) {
+      els.codeWidthControlGroup.style.display = isSidePos ? "inline-flex" : "none";
+    }
     if (els.commentColumnDragBar) {
       els.commentColumnDragBar.style.display = isSidePos ? "flex" : "none";
     }
@@ -494,6 +525,16 @@ function bindEvents() {
       renderBlockUnitsTab();
     }
   });
+
+  // 탭1: 코드 영역 폭 슬라이더 조절 (코드 영역이 실제로 넓어지거나 좁아짐!)
+  if (els.codeWidthSlider) {
+    els.codeWidthSlider.addEventListener("input", (e) => {
+      AppState.userAdjustedCodeWidth = true;
+      AppState.userCodeWidthCh = parseInt(e.target.value, 10);
+      els.lineByLineList.style.setProperty("--code-col-width", `${AppState.userCodeWidthCh}ch`);
+      els.blockUnitsList.style.setProperty("--code-col-width", `${AppState.userCodeWidthCh}ch`);
+    });
+  }
 
   // 탭1: 코드-주석 사이 간격 슬라이더 조절
   els.commentGapSlider.addEventListener("input", (e) => {
@@ -696,11 +737,35 @@ async function handleAnalyzeAll() {
 
 function renderAllTabs() {
   if (!AppState.analysisData) return;
+  renderOneLineEssence();
   renderLineByLineTab();
   renderBlockUnitsTab();
   renderUnderstandingTab();
   renderDeepDiveTab();
   renderGraderInputs();
+}
+
+function renderOneLineEssence() {
+  const essence =
+    AppState.analysisData?.oneLineEssence ||
+    AppState.analysisData?.deepDive?.summary ||
+    "코드를 분석하여 핵심 동작을 단 한 줄로 완벽히 꿰뚫는 요약입니다.";
+
+  if (els.tab1EssenceText) {
+    els.tab1EssenceText.textContent = essence;
+  }
+  updateEssenceBannerVisibility();
+}
+
+function updateEssenceBannerVisibility() {
+  const shouldShow = Boolean(AppState.showOneLineEssence && AppState.analysisData);
+  if (els.tab1EssenceBanner) {
+    els.tab1EssenceBanner.classList.toggle("hidden", !shouldShow);
+  }
+  const tab3Banner = document.getElementById("tab3EssenceBanner");
+  if (tab3Banner) {
+    tab3Banner.classList.toggle("hidden", !shouldShow);
+  }
 }
 
 /* =========================================================
@@ -711,15 +776,23 @@ function createCodeLineRowElement(item) {
   const indentCh = AppState.stripIndentation ? 0 : getIndentCh(item.code);
   const isEmpty = !cleanCode;
 
+  // C언어 / JS / Java 등 단독 닫는 중괄호 } 줄 감지 (다른 줄에 있을 때 산만하지 않고 깔끔하게 보이도록 특별 처리)
+  const isClosingBrace = item.isClosingBrace || /^[\}\]\)]+;?$/.test(cleanCode);
+
   const row = document.createElement("div");
   row.className = "code-line-row";
+  if (isClosingBrace) row.classList.add("closing-brace-row");
   row.dataset.linenum = item.lineNumber;
   row.style.setProperty("--line-indent", `${indentCh}ch`);
   if (isEmpty) row.classList.add("empty-line");
   if (item.lineNumber === AppState.selectedLineNumber) row.classList.add("selected");
 
-  const commentText =
+  let commentText =
     AppState.explanationLevel === "beginner" ? item.beginnerComment : item.advancedComment;
+
+  if (isClosingBrace && !commentText) {
+    commentText = "블록 종료";
+  }
 
   const numSpan = document.createElement("span");
   numSpan.className = "row-line-num";
@@ -728,12 +801,13 @@ function createCodeLineRowElement(item) {
   const codeSpan = document.createElement("span");
   codeSpan.className = "row-code-text";
   codeSpan.textContent = cleanCode || " ";
+  codeSpan.title = "더블클릭하거나 경계선을 드래그하여 코드 영역 너비를 조절할 수 있습니다.";
 
   const commentDiv = document.createElement("div");
   if (!isEmpty && commentText) {
     commentDiv.className = "row-comment-bubble";
-    commentDiv.title = "클릭하여 줄 선택 · 좌/우로 드래그하여 주석 간격 직접 조절";
-    commentDiv.textContent = `# ${commentText}`;
+    commentDiv.title = "클릭하여 줄 선택 · 좌/우로 드래그하여 주석 위치/간격 직접 조절";
+    commentDiv.textContent = isClosingBrace ? `// ${commentText}` : `# ${commentText}`;
   }
 
   const pos = AppState.commentPosition;
@@ -1102,11 +1176,22 @@ function renderVariableTracer() {
  * ========================================================= */
 function renderDeepDiveTab() {
   const deep = AppState.analysisData.deepDive || {};
+  const essence =
+    AppState.analysisData?.oneLineEssence ||
+    deep.summary ||
+    "코드를 분석하여 핵심 동작을 단 한 줄로 완벽히 꿰뚫는 요약입니다.";
+
   const edgeCasesHtml = (deep.edgeCases || [])
     .map((ec) => `<li>${escapeHtml(ec)}</li>`)
     .join("");
 
   els.deepDiveContainer.innerHTML = `
+    <!-- 탭 3 상단 한 줄 완벽 관통 배너 -->
+    <div id="tab3EssenceBanner" class="one-line-essence-banner ${AppState.showOneLineEssence ? "" : "hidden"}">
+      <span class="essence-badge">⚡ 한 줄 완벽 이해</span>
+      <span class="essence-text">${escapeHtml(essence)}</span>
+    </div>
+
     <div class="deep-summary-banner card draggable-card" data-card-id="deep-summary">
       <div class="flex-between" style="margin-bottom:6px;">
         <div class="card-title-with-grip">
@@ -1527,7 +1612,40 @@ function initDragCustomizationSystem() {
     activeDockZone = null;
   });
 
-  // 2. 주석 열 간격 직접 드래그 조절 (상단 가이드 핸들 + 각 줄 주석 말풍선 드래그)
+  // 2. 코드 영역 폭 & 주석 간격 직접 드래그 조절 (코드 영역이 실제로 넓어지거나 좁아짐!)
+  let isDraggingCodeWidth = false;
+  let codeWidthStartX = 0;
+  let codeWidthStartCh = 32;
+
+  const startCodeWidthDrag = (clientX) => {
+    isDraggingCodeWidth = true;
+    codeWidthStartX = clientX;
+    codeWidthStartCh = AppState.userCodeWidthCh || 32;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "ew-resize";
+  };
+
+  if (els.codeWidthDragThumb) {
+    els.codeWidthDragThumb.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      startCodeWidthDrag(e.clientX);
+    });
+  }
+
+  // 코드 텍스트(.row-code-text) 오른쪽 경계를 더블클릭하면 최적 너비로 자동 맞춤
+  const bindCodeRowTextDrag = (containerEl) => {
+    if (!containerEl) return;
+    containerEl.addEventListener("dblclick", (e) => {
+      if (e.target.closest(".row-code-text")) {
+        AppState.userAdjustedCodeWidth = false;
+        updateDynamicCodeAlignment();
+        showToast("↔ 코드 영역 너비가 내용 길이에 맞게 자동 정렬되었습니다.");
+      }
+    });
+  };
+  bindCodeRowTextDrag(els.lineByLineList);
+  bindCodeRowTextDrag(els.blockUnitsList);
+
   let isDraggingCommentCol = false;
   let commentDragStartX = 0;
   let commentDragStartGap = 32;
@@ -1560,21 +1678,32 @@ function initDragCustomizationSystem() {
   bindCommentBubbleDrag(els.blockUnitsList);
 
   window.addEventListener("mousemove", (e) => {
-    if (!isDraggingCommentCol) return;
-    const deltaX = e.clientX - commentDragStartX;
-    const dirMultiplier = AppState.commentPosition === "left" ? -1 : 1;
-    const nextGap = Math.max(4, Math.min(360, Math.round(commentDragStartGap + deltaX * dirMultiplier)));
-    AppState.userAdjustedGap = true;
-    AppState.userCommentGapPx = nextGap;
-    if (els.commentGapSlider) {
-      els.commentGapSlider.value = Math.min(280, Math.max(8, nextGap));
+    if (isDraggingCodeWidth) {
+      // 마우스 8px 이동당 약 1ch 너비 변경
+      const deltaX = e.clientX - codeWidthStartX;
+      const nextCh = Math.max(14, Math.min(100, Math.round(codeWidthStartCh + deltaX / 8)));
+      AppState.userAdjustedCodeWidth = true;
+      AppState.userCodeWidthCh = nextCh;
+      if (els.codeWidthSlider) els.codeWidthSlider.value = nextCh;
+      els.lineByLineList.style.setProperty("--code-col-width", `${nextCh}ch`);
+      els.blockUnitsList.style.setProperty("--code-col-width", `${nextCh}ch`);
+    } else if (isDraggingCommentCol) {
+      const deltaX = e.clientX - commentDragStartX;
+      const dirMultiplier = AppState.commentPosition === "left" ? -1 : 1;
+      const nextGap = Math.max(4, Math.min(360, Math.round(commentDragStartGap + deltaX * dirMultiplier)));
+      AppState.userAdjustedGap = true;
+      AppState.userCommentGapPx = nextGap;
+      if (els.commentGapSlider) {
+        els.commentGapSlider.value = Math.min(280, Math.max(8, nextGap));
+      }
+      els.lineByLineList.style.setProperty("--comment-gap", `${nextGap}px`);
+      els.blockUnitsList.style.setProperty("--comment-gap", `${nextGap}px`);
     }
-    els.lineByLineList.style.setProperty("--comment-gap", `${nextGap}px`);
-    els.blockUnitsList.style.setProperty("--comment-gap", `${nextGap}px`);
   });
 
   window.addEventListener("mouseup", () => {
-    if (isDraggingCommentCol) {
+    if (isDraggingCodeWidth || isDraggingCommentCol) {
+      isDraggingCodeWidth = false;
       isDraggingCommentCol = false;
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
@@ -1977,12 +2106,16 @@ function resetAllCustomUiLayout() {
   setWorkspaceDockLayout("vertical");
   setSlideViewMode("split", 36);
 
-  // 2) 주석 위치 및 간격 초기화
+  // 2) 코드 영역 폭 및 주석 위치·간격 초기화
   AppState.commentPosition = "right";
   els.commentPosSelect.value = "right";
+  AppState.userAdjustedCodeWidth = false;
   AppState.userAdjustedGap = false;
   AppState.userCommentGapPx = 32;
+  AppState.showOneLineEssence = true;
+  if (els.oneLineEssenceToggle) els.oneLineEssenceToggle.checked = true;
   els.commentGapControlGroup.style.display = "inline-flex";
+  if (els.codeWidthControlGroup) els.codeWidthControlGroup.style.display = "inline-flex";
   if (els.commentColumnDragBar) els.commentColumnDragBar.style.display = "flex";
   updateDynamicCodeAlignment();
 
